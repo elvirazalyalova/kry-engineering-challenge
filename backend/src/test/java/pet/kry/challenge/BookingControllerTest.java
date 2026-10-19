@@ -16,12 +16,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-class AssessmentControllerTest {
+class BookingControllerTest {
     @Test void availableSlotReturnsConfirmation() throws Exception {
         // Fake service that accepts the booking and returns a known id
         SchedulingService scheduling = mock(SchedulingService.class);
         when(scheduling.book(any())).thenReturn("booking-123");
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AssessmentController(scheduling)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new BookingController(scheduling)).build();
 
         // A valid request for a free slot returns 200 with the service's confirmation id
         mvc.perform(post("/api/booking").contentType(MediaType.APPLICATION_JSON)
@@ -35,7 +35,7 @@ class AssessmentControllerTest {
         SchedulingService scheduling = mock(SchedulingService.class);
         when(scheduling.book(any())).thenThrow(new SlotUnavailableException());
         // Fake HTTP client for this one controller; no server or Spring context is started
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AssessmentController(scheduling)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new BookingController(scheduling)).build();
 
         // A valid booking request for a slot the service refuses must return 409 Conflict, not 500
         mvc.perform(post("/api/booking").contentType(MediaType.APPLICATION_JSON)
@@ -46,7 +46,7 @@ class AssessmentControllerTest {
     @Test void cancellingReturnsNoContent() throws Exception {
         // Fake service: cancelBooking() does nothing by default, i.e. succeeds
         SchedulingService scheduling = mock(SchedulingService.class);
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AssessmentController(scheduling)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new BookingController(scheduling)).build();
 
         mvc.perform(delete("/api/booking/booking-123")).andExpect(status().isNoContent());
     }
@@ -54,7 +54,7 @@ class AssessmentControllerTest {
     @Test void cancellingUnknownBookingReturnsNotFound() throws Exception {
         SchedulingService scheduling = mock(SchedulingService.class);
         doThrow(new BookingNotFoundException()).when(scheduling).cancelBooking("unknown");
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AssessmentController(scheduling)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new BookingController(scheduling)).build();
 
         mvc.perform(delete("/api/booking/unknown")).andExpect(status().isNotFound());
     }

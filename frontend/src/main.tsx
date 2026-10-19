@@ -14,7 +14,9 @@ const questions = [
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  if (!response.ok) throw new Error(response.status === 409
+    ? 'That time was just booked by someone else. Please choose another time.'
+    : `Request failed (${response.status})`);
   return response.json() as Promise<T>;
 }
 function App() {
@@ -36,7 +38,11 @@ function App() {
     if (!slot || !assessment) return;
     setBusy(true); setError('');
     try { setConfirmation(await post<Confirmation>('/api/booking', { slot, recommendation: assessment.recommendation })); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Booking failed'); }
+    catch (e) {
+      setError(e instanceof Error ? e.message : 'Booking failed');
+      // The list may be stale (e.g. slot just taken): clear the choice and reload it
+      setSlot(''); post<Assessment>('/api/assessment', { answers }).then(setAssessment, () => {});
+    }
     finally { setBusy(false); }
   }
   return <main className="card">

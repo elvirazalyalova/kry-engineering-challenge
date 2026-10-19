@@ -1,5 +1,6 @@
 package pet.kry.challenge;
 
+import pet.kry.challenge.exception.BookingNotFoundException;
 import pet.kry.challenge.exception.SlotUnavailableException;
 import org.junit.jupiter.api.Test;
 import java.time.*;
@@ -80,5 +81,29 @@ class SchedulingServiceTest {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test void cancellingFreesTheSlotForSomeoneElse() {
+        // Fill the slot, cancel one booking: the slot is offered again and can be booked once more
+        OffsetDateTime slot = OffsetDateTime.parse("2026-10-12T08:30:00+02:00");
+        int capacity = scheduling.activeClinicians(LocalTime.of(8, 30));
+        String id = null;
+        for (int i = 0; i < capacity; i++) id = scheduling.book(slot);
+        assertFalse(scheduling.availableSlots().contains(slot));
+
+        scheduling.cancelBooking(id);
+
+        assertTrue(scheduling.availableSlots().contains(slot));
+        assertNotNull(scheduling.book(slot));
+        assertThrows(SlotUnavailableException.class, () -> scheduling.book(slot));
+    }
+
+    @Test void cancellingUnknownOrAlreadyCancelledBookingIsRefused() {
+        assertThrows(BookingNotFoundException.class, () -> scheduling.cancelBooking("no-such-booking"));
+
+        String id = scheduling.book(OffsetDateTime.parse("2026-10-12T08:30:00+02:00"));
+        scheduling.cancelBooking(id);
+        // Second cancel must not free capacity a second time
+        assertThrows(BookingNotFoundException.class, () -> scheduling.cancelBooking(id));
     }
 }

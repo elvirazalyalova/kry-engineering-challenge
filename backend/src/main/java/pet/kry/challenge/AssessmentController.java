@@ -1,5 +1,6 @@
 package pet.kry.challenge;
 
+import pet.kry.challenge.exception.BookingNotFoundException;
 import pet.kry.challenge.exception.SlotUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -40,6 +41,16 @@ public class AssessmentController {
         } catch (SlotUnavailableException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "This appointment is no longer available. Please choose another time.", e);
+        }
+    }
+
+    @DeleteMapping("/booking/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancel(@PathVariable("id") String id) {
+        try {
+            scheduling.cancelBooking(id);
+        } catch (BookingNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No booking found with that reference.", e);
         }
     }
 }

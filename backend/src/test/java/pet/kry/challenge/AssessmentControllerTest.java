@@ -4,11 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import pet.kry.challenge.exception.BookingNotFoundException;
 import pet.kry.challenge.exception.SlotUnavailableException;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,5 +41,21 @@ class AssessmentControllerTest {
         mvc.perform(post("/api/booking").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"slot\":\"2026-10-12T08:00:00+02:00\",\"recommendation\":\"Nurse\"}"))
             .andExpect(status().isConflict());
+    }
+
+    @Test void cancellingReturnsNoContent() throws Exception {
+        // Fake service: cancelBooking() does nothing by default, i.e. succeeds
+        SchedulingService scheduling = mock(SchedulingService.class);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AssessmentController(scheduling)).build();
+
+        mvc.perform(delete("/api/booking/booking-123")).andExpect(status().isNoContent());
+    }
+
+    @Test void cancellingUnknownBookingReturnsNotFound() throws Exception {
+        SchedulingService scheduling = mock(SchedulingService.class);
+        doThrow(new BookingNotFoundException()).when(scheduling).cancelBooking("unknown");
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new AssessmentController(scheduling)).build();
+
+        mvc.perform(delete("/api/booking/unknown")).andExpect(status().isNotFound());
     }
 }

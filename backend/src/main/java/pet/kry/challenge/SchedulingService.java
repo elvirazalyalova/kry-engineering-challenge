@@ -1,5 +1,6 @@
 package pet.kry.challenge;
 
+import pet.kry.challenge.exception.BookingNotFoundException;
 import pet.kry.challenge.exception.SlotUnavailableException;
 import org.springframework.stereotype.Service;
 import java.time.*;
@@ -11,6 +12,7 @@ public class SchedulingService {
     private static final List<LocalTime> STARTS = List.of(LocalTime.of(8, 0), LocalTime.of(8, 30), LocalTime.of(9, 0), LocalTime.of(9, 30));
     private final Clock clock;
     private final Map<OffsetDateTime, Integer> booked = new HashMap<>();
+    private final Map<String, OffsetDateTime> bookings = new HashMap<>(); // confirmation id -> slot
 
     public SchedulingService() { this(Clock.system(CLINIC_ZONE)); }
     SchedulingService(Clock clock) { this.clock = clock; }
@@ -51,6 +53,18 @@ public class SchedulingService {
             throw new SlotUnavailableException();
         }
         booked.merge(slot, 1, Integer::sum);
-        return UUID.randomUUID().toString();
+        String id = UUID.randomUUID().toString();
+        bookings.put(id, slot);
+        return id;
+    }
+
+    public synchronized void cancelBooking(String bookingId) {
+        OffsetDateTime slot = bookings.get(bookingId);
+        if (slot == null) {
+            throw new BookingNotFoundException();
+        }
+        bookings.remove(bookingId);
+        // Free the slot
+        booked.computeIfPresent(slot, (key, count) -> count > 1 ? count - 1 : null);
     }
 }

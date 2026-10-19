@@ -27,7 +27,18 @@ function App() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  function reset() { setStep(-1); setAnswers(Array(5).fill(0)); setAssessment(null); setSlot(''); setConfirmation(null); setError(''); }
+  const [reference, setReference] = useState('');
+  const [cancelled, setCancelled] = useState(false);
+  function reset() { setStep(-1); setAnswers(Array(5).fill(0)); setAssessment(null); setSlot(''); setConfirmation(null); setError(''); setCancelled(false); }
+  async function cancelBooking() {
+    setBusy(true); setError(''); setCancelled(false);
+    try {
+      const response = await fetch(`/api/booking/${encodeURIComponent(reference.trim())}`, { method: 'DELETE' });
+      if (response.ok) { setCancelled(true); setReference(''); }
+      else setError(response.status === 404 ? 'No booking found with that reference.' : `Request failed (${response.status})`);
+    } catch { setError('Cancellation failed. Please try again.'); }
+    finally { setBusy(false); }
+  }
   async function submit() {
     setBusy(true); setError('');
     try { setAssessment(await post<Assessment>('/api/assessment', { answers })); }
@@ -49,10 +60,11 @@ function App() {
     <header><span className="eyebrow">Engineering exercise · fictional clinic</span><h1>Appointment guidance</h1><p>This is a prototype, not medical advice. For urgent symptoms seek appropriate emergency care.</p></header>
     {step >= 0 && <button className="secondary reset" onClick={reset}>Cancel and restart</button>}
     {error && <p role="alert" className="error">{error}</p>}
-    {step === -1 && <section><h2>Get started</h2><p>Answer five questions to explore the booking flow.</p><button onClick={() => setStep(0)}>Start questionnaire</button></section>}
+    {step === -1 && <section><h2>Get started</h2><p>Answer five questions to explore the booking flow.</p><button onClick={() => { setError(''); setStep(0); }}>Start questionnaire</button></section>}
+    {step === -1 && <section><h2>Cancel an existing booking</h2><label htmlFor="reference">Booking reference</label><input id="reference" type="text" value={reference} onChange={e => setReference(e.target.value)}/><button className="secondary" disabled={!reference.trim() || busy} onClick={cancelBooking}>Cancel booking</button>{cancelled && <p role="status">Your booking has been cancelled.</p>}</section>}
     {step >= 0 && !assessment && <section><p className="eyebrow">Question {step + 1} of 5</p><progress max={5} value={step + 1}/><h2>{questions[step].title}</h2><fieldset><legend>Choose one answer</legend>{questions[step].options.map((option, index) => <label key={option} className="choice"><input type="radio" name={`q${step}`} checked={answers[step] === index + 1} onChange={() => setAnswers(prev => prev.map((v, i) => i === step ? index + 1 : v))}/>{option}</label>)}</fieldset><div className="actions"><button className="secondary" disabled={step === 0 || busy} onClick={() => setStep(step - 1)}>Back</button>{step < 4 ? <button disabled={!answers[step]} onClick={() => setStep(step + 1)}>Next</button> : <button disabled={busy || answers.some(x => !x)} onClick={submit}>{busy ? 'Loading…' : 'See recommendation'}</button>}</div></section>}
     {assessment && !confirmation && <section><h2>Recommended: {assessment.recommendation}</h2><p>Exercise score: {assessment.score}. This recommendation is not clinically validated.</p><label htmlFor="slot">Available appointments</label><select id="slot" value={slot} onChange={e => setSlot(e.target.value)}><option value="">Choose a slot</option>{assessment.availableSlots.map(s => <option key={s} value={s}>{new Date(s).toLocaleString('en-GB', { timeZone: 'Europe/Stockholm', dateStyle: 'medium', timeStyle: 'short' })} (Stockholm)</option>)}</select><button disabled={!slot || busy} onClick={book}>{busy ? 'Booking…' : 'Confirm booking'}</button></section>}
-    {confirmation && <section><h2>Booking confirmed</h2><p>Reference: <code>{confirmation.confirmationId}</code></p><p>{new Date(confirmation.slot).toLocaleString('en-GB', { timeZone: 'Europe/Stockholm', dateStyle: 'full', timeStyle: 'short' })}</p><button onClick={reset}>Start again</button></section>}
+    {confirmation && <section><h2>Booking confirmed</h2><p>Reference: <code>{confirmation.confirmationId}</code></p><p>Keep this reference if you need to cancel.</p><p>{new Date(confirmation.slot).toLocaleString('en-GB', { timeZone: 'Europe/Stockholm', dateStyle: 'full', timeStyle: 'short' })}</p><button onClick={reset}>Start again</button></section>}
   </main>;
 }
 

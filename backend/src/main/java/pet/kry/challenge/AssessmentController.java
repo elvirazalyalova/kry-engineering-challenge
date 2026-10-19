@@ -1,5 +1,6 @@
 package pet.kry.challenge;
 
+import pet.kry.challenge.exception.SlotUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,6 +35,11 @@ public class AssessmentController {
             !List.of("Chat", "Nurse", "Doctor").contains(request.recommendation())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid booking");
         }
-        return new BookingResponse(scheduling.book(request.slot()), request.slot(), request.recommendation());
+        try {
+            return new BookingResponse(scheduling.book(request.slot()), request.slot(), request.recommendation());
+        } catch (SlotUnavailableException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "This appointment is no longer available. Please choose another time.", e);
+        }
     }
 }

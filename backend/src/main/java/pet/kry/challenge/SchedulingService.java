@@ -1,5 +1,6 @@
 package pet.kry.challenge;
 
+import pet.kry.challenge.exception.SlotUnavailableException;
 import org.springframework.stereotype.Service;
 import java.time.*;
 import java.util.*;
@@ -14,7 +15,7 @@ public class SchedulingService {
     public SchedulingService() { this(Clock.system(CLINIC_ZONE)); }
     SchedulingService(Clock clock) { this.clock = clock; }
 
-    public List<OffsetDateTime> availableSlots() {
+    public synchronized List<OffsetDateTime> availableSlots() {
         ZonedDateTime now = ZonedDateTime.now(clock).withZoneSameInstant(CLINIC_ZONE);
         List<OffsetDateTime> result = new ArrayList<>();
         for (int day = 0; day <= 3; day++) {
@@ -35,7 +36,7 @@ public class SchedulingService {
             LocalTime breakStart = start.plusHours(4);
             LocalTime breakEnd = breakStart.plusHours(1);
             LocalTime finish = start.plusHours(9);
-            if (!time.isBefore(start) && !time.isAfter(finish) &&
+            if (!time.isBefore(start) && time.isBefore(finish) &&
                 (time.isBefore(breakStart) || !time.isBefore(breakEnd))) {
                 available++;
             }
@@ -43,8 +44,12 @@ public class SchedulingService {
         return available;
     }
 
-    public String book(OffsetDateTime slot) {
+    public synchronized String book(OffsetDateTime requested) {
         // The client is expected to choose a slot from the assessment response.
+        OffsetDateTime slot = requested.atZoneSameInstant(CLINIC_ZONE).toOffsetDateTime();
+        if (!availableSlots().contains(slot)) {
+            throw new SlotUnavailableException();
+        }
         booked.merge(slot, 1, Integer::sum);
         return UUID.randomUUID().toString();
     }
